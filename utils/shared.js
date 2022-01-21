@@ -48,8 +48,8 @@ const fileTool = {
     return file;
   },
   async getFile(query) {
-    const user = await dbClient.filesCollection.findOne(query);
-    return user;
+    const file = await dbClient.filesCollection.findOne(query);
+    return file;
   },
   async saveFile(userId, fileParams, FOLDER_PATH) {
     const {
@@ -76,6 +76,10 @@ const fileTool = {
     const fileList = await dbClient.filesCollection.findOneAndUpdate(
       query, set, { returnOriginal: false },
     );
+    return fileList;
+  },
+  async getFilesOfParentId(query) {
+    const fileList = await dbClient.filesCollection.aggregate(query);
     return fileList;
   },
   async publishUnpublish(request, setPublish) {
