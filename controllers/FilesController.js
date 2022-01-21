@@ -23,7 +23,7 @@ class FilesController {
 
   static async getShow(request, response) {
     const fileId = request.params.id;
-    const { userId } = await userTool.getUserIdAndKey(request);
+    const { userId } = await userTool.getCredentials(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
     if (!mongoCheck.isValidId(fileId)) return response.status(404).send({ error: 'Not found' });
@@ -34,7 +34,7 @@ class FilesController {
   }
 
   static async getIndex(request, response) {
-    const { userId } = await userTool.getUserIdAndKey(request);
+    const { userId } = await userTool.getCredentials(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
     let parentId = request.query.parentId || 0;
@@ -72,7 +72,7 @@ class FilesController {
   }
 
   static async getFile(request, response) {
-    const { userId } = await userTool.getUserIdAndKey(request);
+    const { userId } = await userTool.getCredentials(request);
     const { id: fileId } = request.params;
     if (!mongoCheck.isValidId(fileId)) return response.status(404).send({ error: 'Not found' });
     const file = await fileTool.getFile({
