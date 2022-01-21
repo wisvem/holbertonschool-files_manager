@@ -4,6 +4,18 @@ import { promises } from 'fs';
 import dbClient from './db';
 import redisClient from './redis';
 
+const mongoCheck = {
+  isValidId(id) {
+    // Checks if Id is Valid for Mongo
+    try {
+      ObjectId(id);
+    } catch (err) {
+      return false;
+    }
+    return true;
+  },
+};
+
 const userTool = {
   async getCredentials(request) {
     const credential = { userId: null, key: null };
@@ -18,6 +30,7 @@ const userTool = {
     return user;
   },
 };
+
 const fileTool = {
   async validateBody(request) {
     const {
@@ -31,7 +44,7 @@ const fileTool = {
       msg = 'Missing type';
     } else if (!data && type !== 'folder') {
       msg = 'Missing data';
-    } else if (parentId) {
+    } else if (parentId && parentId !== '0') {
       const file = await this.getFile({ _id: ObjectId(parentId) });
       if (!file) {
         msg = 'Parent not found';
@@ -63,14 +76,17 @@ const fileTool = {
       const fileDataDecoded = Buffer.from(data, 'base64').toString('utf-8');
       const path = `${FOLDER_PATH}/${fileNameUUID}`;
       query.localPath = path;
-      await promises.mkdir(FOLDER_PATH, { recursive: true });
-      await promises.writeFile(path, fileDataDecoded);
+      try {
+        await promises.mkdir(FOLDER_PATH, { recursive: true });
+        await promises.writeFile(path, fileDataDecoded);
+      } catch (err) {
+        return { error: err.message, code: 400 };
+      }
     }
     const result = await dbClient.filesCollection.insertOne(query);
-    delete query._id;
-    delete query.localPath;
-    const newFile = { id: result.insertedId, ...query };
-    return newFile;
+    const file = this.processFile(query);
+    const newFile = { id: result.insertedId, ...file };
+    return { error: null, newFile };
   },
   async updateFile(query, set) {
     const fileList = await dbClient.filesCollection.findOneAndUpdate(
@@ -84,6 +100,7 @@ const fileTool = {
   },
   async publishUnpublish(request, setPublish) {
     const { id: fileId } = request.params;
+    if (mongoCheck.isValidId(fileId)) return { error: 'Unauthorized', code: 401 };
     const { userId } = await userTool.getUserIdAndKey(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return { error: 'Unauthorized', code: 401 };
@@ -100,8 +117,30 @@ const fileTool = {
     };
     return { error: null, code: 200, updatedFile };
   },
+
+  processFile(doc) {
+    const file = { id: doc._id, ...doc };
+    delete file.localPath;
+    delete file._id;
+    return file;
+  },
+  isOwnerAndPublic(file, userId) {
+    if ((!file.isPublic && !userId) || (userId && file.userId !== userId)) return false;
+    return true;
+  },
+  async getFileData(file) {
+    const { localPath } = file;
+    let data;
+    try {
+      data = await promises.readFile(localPath);
+      data = data.toString();
+    } catch (err) {
+      return { error: 'Not found', code: 404 };
+    }
+    return { data };
+  },
 };
 
 export {
-  userTool, fileTool,
+  userTool, fileTool, mongoCheck,
 };

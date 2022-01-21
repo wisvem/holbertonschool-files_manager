@@ -46,6 +46,9 @@ function controllerRouting(app) {
   router.put('/files/:id/unpublish', (req, res) => {
     FilesController.putUnpublish(req, res);
   });
+  router.get('/files/:id/data', (req, res) => {
+    FilesController.getFile(req, res);
+  });
 }
 
 export default controllerRouting;

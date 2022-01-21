@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
-import { userTool, fileTool } from '../utils/shared';
+import mime from 'mime-types';
+import { userTool, fileTool, mongoCheck } from '../utils/shared';
 
 const FOLDER_PATH = process.env.FOLDER_PATH || '/tmp/files_manager';
 
@@ -12,7 +13,11 @@ class FilesController {
       request,
     );
     if (validationError) return response.status(400).send({ error: validationError });
-    const newFile = await fileTool.saveFile(userId, fileParams, FOLDER_PATH);
+    const { error, code, newFile } = await fileTool.saveFile(
+      userId, fileParams, FOLDER_PATH,
+    );
+
+    if (error) return response.status(code).send(error);
     return response.status(201).send(newFile);
   }
 
@@ -21,11 +26,10 @@ class FilesController {
     const { userId } = await userTool.getUserIdAndKey(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
+    if (!mongoCheck.isValidId(fileId)) return response.status(404).send({ error: 'Not found' });
     const fileTmp = await fileTool.getFile({ _id: ObjectId(fileId), userId });
     if (!fileTmp) return response.status(404).send({ error: 'Not found' });
     const file = { id: fileTmp._id, ...fileTmp };
-    delete file.localPath;
-    delete file._id;
     return response.status(200).send(file);
   }
 
@@ -45,8 +49,7 @@ class FilesController {
     const fileCursor = await fileTool.getFilesOfParentId(pipeline);
     const fileList = [];
     await fileCursor.forEach((doc) => {
-      const document = doc;
-      delete document.localPath;
+      const document = fileTool.processFile(doc);
       fileList.push(document);
     });
     return response.status(200).send(fileList);
@@ -66,6 +69,26 @@ class FilesController {
     );
     if (error) return response.status(code).send({ error });
     return response.status(code).send(updatedFile);
+  }
+
+  static async getFile(request, response) {
+    const { userId } = await userTool.getUserIdAndKey(request);
+    const { id: fileId } = request.params;
+    if (!mongoCheck.isValidId(fileId)) return response.status(404).send({ error: 'Not found' });
+    const file = await fileTool.getFile({
+      _id: ObjectId(fileId),
+    });
+    if (!file || !fileTool.isOwnerAndPublic(file, userId)) return response.status(404).send({ error: 'Not found' });
+    if (file.type === 'folder') {
+      return response
+        .status(400)
+        .send({ error: "A folder doesn't have content" });
+    }
+    const { error, code, data } = await fileTool.getFileData(file);
+    if (error) return response.status(code).send({ error });
+    const mimeType = mime.contentType(file.name);
+    response.setHeader('Content-Type', mimeType);
+    return response.status(200).send(data);
   }
 }
 
