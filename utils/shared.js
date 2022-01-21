@@ -6,12 +6,12 @@ import redisClient from './redis';
 
 const userTool = {
   async getCredentials(request) {
-    const obj = { userId: null, key: null };
+    const credential = { userId: null, key: null };
     const xToken = request.header('X-Token');
-    if (!xToken) return obj;
-    obj.key = `auth_${xToken}`;
-    obj.userId = await redisClient.get(obj.key);
-    return obj;
+    if (!xToken) return credential;
+    credential.key = `auth_${xToken}`;
+    credential.userId = await redisClient.get(credential.key);
+    return credential;
   },
   async getUser(query) {
     const user = await dbClient.usersCollection.findOne(query);
@@ -40,13 +40,13 @@ const fileTool = {
         msg = 'Parent is not a folder';
       }
     }
-    const obj = {
+    const file = {
       error: msg,
       fileParams: {
         name, type, parentId, isPublic, data,
       },
     };
-    return obj;
+    return file;
   },
 
   async getFile(query) {
