@@ -18,7 +18,6 @@ const userTool = {
     return user;
   },
 };
-
 const fileTool = {
   async validateBody(request) {
     const {
@@ -48,7 +47,6 @@ const fileTool = {
     };
     return file;
   },
-
   async getFile(query) {
     const user = await dbClient.filesCollection.findOne(query);
     return user;
@@ -60,7 +58,6 @@ const fileTool = {
     const query = {
       userId, name, type, isPublic, parentId,
     };
-
     if (fileParams.type !== 'folder') {
       const fileNameUUID = uuidv4();
       const fileDataDecoded = Buffer.from(data, 'base64').toString('utf-8');
@@ -74,6 +71,30 @@ const fileTool = {
     delete query.localPath;
     const newFile = { id: result.insertedId, ...query };
     return newFile;
+  },
+  async updateFile(query, set) {
+    const fileList = await dbClient.filesCollection.findOneAndUpdate(
+      query, set, { returnOriginal: false },
+    );
+    return fileList;
+  },
+  async publishUnpublish(request, setPublish) {
+    const { id: fileId } = request.params;
+    const { userId } = await userTool.getUserIdAndKey(request);
+    const user = await userTool.getUser({ _id: ObjectId(userId) });
+    if (!user) return { error: 'Unauthorized', code: 401 };
+    const file = await this.getFile({ _id: ObjectId(fileId), userId });
+    if (!file) return { error: 'Not found', code: 404 };
+    const result = await this.updateFile(
+      { _id: ObjectId(fileId), userId }, { $set: { isPublic: setPublish } },
+    );
+    const {
+      _id: id, userId: resultUserId, name, type, isPublic, parentId,
+    } = result.value;
+    const updatedFile = {
+      id, userId: resultUserId, name, type, isPublic, parentId,
+    };
+    return { error: null, code: 200, updatedFile };
   },
 };
 
