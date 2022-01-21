@@ -2,11 +2,11 @@ import { ObjectId } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import sha1 from 'sha1';
 import redisClient from '../utils/redis';
-import userTool from '../utils/shared';
+import { userTool } from '../utils/shared';
 
 class AuthController {
   static async getConnect(request, response) {
-    const Authorization = request.header('Authorization');
+    const Authorization = request.header('Authorization') || '';
     const credentials = Authorization.split(' ')[1];
     if (!credentials) return response.status(401).send({ error: 'Unauthorized' });
     const decodedCredentials = Buffer.from(credentials, 'base64').toString(
