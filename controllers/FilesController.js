@@ -21,9 +21,11 @@ class FilesController {
     const { userId } = await userTool.getUserIdAndKey(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
-    const file = await fileTool.getFile({ _id: ObjectId(fileId), userId });
-    if (!file) return response.status(404).send({ error: 'Not found' });
+    const fileTmp = await fileTool.getFile({ _id: ObjectId(fileId), userId });
+    if (!fileTmp) return response.status(404).send({ error: 'Not found' });
+    const file = { id: fileTmp._id, ...fileTmp };
     delete file.localPath;
+    delete file._id;
     return response.status(200).send(file);
   }
 
