@@ -9,14 +9,13 @@ class FilesController {
     const { userId } = await userTool.getCredentials(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
-    const { error: validationError, fileParams } = await fileTool.validateBody(
+    const { error: validationError, fileParams } = await fileTool.checkBody(
       request,
     );
     if (validationError) return response.status(400).send({ error: validationError });
     const { error, code, newFile } = await fileTool.saveFile(
       userId, fileParams, FOLDER_PATH,
     );
-
     if (error) return response.status(code).send(error);
     return response.status(201).send(newFile);
   }
@@ -26,10 +25,10 @@ class FilesController {
     const { userId } = await userTool.getCredentials(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return response.status(401).send({ error: 'Unauthorized' });
-    if (!mongoCheck.isValidId(fileId)) return response.status(404).send({ error: 'Not found' });
+    if (!mongoCheck.validID(fileId)) return response.status(404).send({ error: 'Not found' });
     const fileTmp = await fileTool.getFile({ _id: ObjectId(fileId), userId });
     if (!fileTmp) return response.status(404).send({ error: 'Not found' });
-    const file = { id: fileTmp._id, ...fileTmp };
+    const file = fileTool.processFile(fileTmp);
     return response.status(200).send(file);
   }
 
@@ -74,11 +73,11 @@ class FilesController {
   static async getFile(request, response) {
     const { userId } = await userTool.getCredentials(request);
     const { id: fileId } = request.params;
-    if (!mongoCheck.isValidId(fileId)) return response.status(404).send({ error: 'Not found' });
+    if (!mongoCheck.validID(fileId)) return response.status(404).send({ error: 'Not found' });
     const file = await fileTool.getFile({
       _id: ObjectId(fileId),
     });
-    if (!file || !fileTool.isOwnerAndPublic(file, userId)) return response.status(404).send({ error: 'Not found' });
+    if (!file || !fileTool.checkOwnerPublic(file, userId)) return response.status(404).send({ error: 'Not found' });
     if (file.type === 'folder') {
       return response
         .status(400)

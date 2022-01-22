@@ -5,8 +5,7 @@ import dbClient from './db';
 import redisClient from './redis';
 
 const mongoCheck = {
-  isValidId(id) {
-    // Checks if Id is Valid for Mongo
+  validID(id) {
     try {
       ObjectId(id);
     } catch (err) {
@@ -32,7 +31,7 @@ const userTool = {
 };
 
 const fileTool = {
-  async validateBody(request) {
+  async checkBody(request) {
     const {
       name, type, parentId = 0, isPublic = false, data,
     } = request.body;
@@ -100,8 +99,8 @@ const fileTool = {
   },
   async publishUnpublish(request, setPublish) {
     const { id: fileId } = request.params;
-    if (mongoCheck.isValidId(fileId)) return { error: 'Unauthorized', code: 401 };
-    const { userId } = await userTool.getUserIdAndKey(request);
+    if (mongoCheck.validID(fileId)) return { error: 'Unauthorized', code: 401 };
+    const { userId } = await userTool.getCredentials(request);
     const user = await userTool.getUser({ _id: ObjectId(userId) });
     if (!user) return { error: 'Unauthorized', code: 401 };
     const file = await this.getFile({ _id: ObjectId(fileId), userId });
@@ -117,14 +116,13 @@ const fileTool = {
     };
     return { error: null, code: 200, updatedFile };
   },
-
   processFile(doc) {
     const file = { id: doc._id, ...doc };
     delete file.localPath;
     delete file._id;
     return file;
   },
-  isOwnerAndPublic(file, userId) {
+  checkOwnerPublic(file, userId) {
     if ((!file.isPublic && !userId) || (userId && file.userId !== userId)) return false;
     return true;
   },
